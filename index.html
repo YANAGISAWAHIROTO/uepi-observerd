@@ -2,117 +2,38 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>UEPI 観測・解析端末</title>
+<title>UEPI 観測端末</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
-  margin: 0;
-  background: #0b0e12;
-  color: #e6e6e6;
-  font-family: "Courier New", monospace;
-}
-header {
-  background: #111827;
-  padding: 16px;
-  border-bottom: 1px solid #2b2f36;
-}
-h1 { margin: 0; font-size: 20px; }
-.subtitle { font-size: 12px; color: #9aa4b2; }
-
-.container { padding: 16px; }
-.panel {
-  border: 1px solid #2b2f36;
-  padding: 12px;
-  margin-bottom: 16px;
-  background: #0f131a;
-}
-
-.NOIS { color:#4ade80; }
-.LOW { color:#60a5fa; }
-.MID { color:#facc15; }
-.HIGH { color:#f87171; }
-.CRITICAL { color:#c084fc; }
-
-.status { font-size:18px; font-weight:bold; }
-.id { font-size:14px; opacity:0.8; }
-
-label { display:block; margin-top:8px; font-size:12px; }
-select, textarea, button {
-  width:100%;
-  margin-top:4px;
-  background:#06080c;
-  color:#e6e6e6;
-  border:1px solid #2b2f36;
-  padding:6px;
-}
-
-button {
-  margin-top:10px;
-  cursor:pointer;
-}
-
-.log {
-  font-size:12px;
-  background:#06080c;
-  padding:8px;
-  height:160px;
-  overflow-y:auto;
-  border:1px solid #2b2f36;
-}
-
-footer {
-  text-align:center;
-  font-size:11px;
-  color:#6b7280;
-  padding:12px;
-}
+body{margin:0;background:#0b0e12;color:#e6e6e6;font-family:monospace}
+header{background:#111827;padding:14px;border-bottom:1px solid #2b2f36}
+.container{padding:16px}
+.panel{border:1px solid #2b2f36;background:#0f131a;padding:12px;margin-bottom:14px}
+button{width:100%;padding:10px;background:#06080c;color:#e6e6e6;border:1px solid #2b2f36}
+.log{font-size:12px;background:#06080c;padding:8px;height:140px;overflow-y:auto}
+.NOIS{color:#4ade80}.MID{color:#facc15}.HIGH{color:#f87171}.CRITICAL{color:#c084fc}
 </style>
 </head>
 
 <body>
 
 <header>
-<h1>UEPI 観測・解析端末</h1>
-<div class="subtitle">Unidentified Environmental Phenomena Institute</div>
+<b>UEPI 観測・解析端末</b><br>
+<span style="font-size:12px;color:#9aa4b2">
+Unidentified Environmental Phenomena Institute
+</span>
 </header>
 
 <div class="container">
 
 <div class="panel">
-<div>現在の怪異判定：</div>
-<div id="status" class="status NOIS">NOIS（異常なし）</div>
-<div id="aid" class="id">UEPI-000</div>
+<div>現在の判定</div>
+<div id="status" class="NOIS" style="font-size:18px">未観測</div>
+<div id="aid" style="font-size:13px;opacity:.7">---</div>
 </div>
 
 <div class="panel">
-<div>調査結果入力</div>
-
-<label>観測内容</label>
-<textarea id="desc"></textarea>
-
-<label>異常の種類</label>
-<select id="type">
-<option>音</option>
-<option>視覚</option>
-<option>機械</option>
-<option>時間</option>
-<option>感覚</option>
-</select>
-
-<label>継続時間</label>
-<select id="duration">
-<option>瞬間</option>
-<option>数秒</option>
-<option>数分以上</option>
-</select>
-
-<label>発生回数</label>
-<select id="count">
-<option>1回</option>
-<option>複数回</option>
-</select>
-
-<button onclick="analyze()">解析開始</button>
+<button onclick="startObservation()">▶ 観測開始</button>
 </div>
 
 <div class="panel">
@@ -122,59 +43,175 @@ footer {
 
 </div>
 
-<footer>
-© UEPI / 未解明環境現象研究機構
-</footer>
-
 <script>
-const logEl = document.getElementById("log");
-const statusEl = document.getElementById("status");
-const idEl = document.getElementById("aid");
+let observing=false;
+let results=[];
 
-function addLog(text){
-  const t = new Date().toLocaleTimeString();
-  logEl.innerHTML += `[${t}] ${text}<br>`;
-  logEl.scrollTop = logEl.scrollHeight;
+const log=document.getElementById("log");
+const status=document.getElementById("status");
+const aid=document.getElementById("aid");
+
+function addLog(t){
+  log.innerHTML+=`[${new Date().toLocaleTimeString()}] ${t}<br>`;
+  log.scrollTop=log.scrollHeight;
 }
 
-function analyze(){
-  const type = document.getElementById("type").value;
-  const duration = document.getElementById("duration").value;
-  const count = document.getElementById("count").value;
+function startObservation(){
+  if(observing)return;
+  observing=true;
+  results=[];
+  status.textContent="観測中…";
+  status.className="";
+  aid.textContent="UEPI-OBS";
+  addLog("観測開始");
 
-  let result = {
-    rank:"NOIS",
-    id:"UEPI-000",
-    text:"異常なし"
+  // 擬似的に複数データ取得（5秒）
+  let count=0;
+  const timer=setInterval(()=>{
+    count++;
+    results.push(sampleDetect());
+    addLog("環境データ取得");
+    if(count>=5){
+      clearInterval(timer);
+      finalizeResult();
+    }
+  },1000);
+}
+
+function sampleDetect(){
+  const pool=["NOIS","NOIS","MID","MID","HIGH","CRITICAL"];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function finalizeResult(){
+  observing=false;
+
+  // 多数決で1つに収束
+  const freq={};
+  results.forEach(r=>freq[r]=(freq[r]||0)+1);
+  const final=Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
+
+  const info={
+    NOIS:["UEPI-000","異常なし"],
+    MID:["UEPI-021","環境異音干渉"],
+    HIGH:["UEPI-071","局所現実歪曲"],
+    CRITICAL:["UEPI-███","重大未解明怪異"]
   };
 
-  if(type==="音" && duration!=="瞬間" && count==="複数回"){
-    result={rank:"MID",id:"UEPI-014",text:"低周波囁き現象"};
-  }
-  else if(type==="機械" && count==="複数回"){
-    result={rank:"MID",id:"UEPI-042",text:"電子機器誤同期現象"};
-  }
-  else if(type==="時間" && duration==="数分以上"){
-    result={rank:"HIGH",id:"UEPI-066",text:"時刻乖離誤作動"};
-  }
-  else if(type==="視覚" && count==="複数回"){
-    result={rank:"HIGH",id:"UEPI-087",text:"視界欠損域"};
-  }
-  else if(duration==="数分以上" && count==="複数回"){
-    result={rank:"CRITICAL",id:"UEPI-███",text:"未分類重大怪異"};
-  }
-
-  statusEl.className="status "+result.rank;
-  statusEl.textContent=`${result.rank}（${result.text}）`;
-  idEl.textContent=result.id;
-
-  addLog(`${result.id} / ${result.text} 判定`);
-  localStorage.setItem("uepi-log",logEl.innerHTML);
+  status.textContent=`${final}（${info[final][1]}）`;
+  status.className=final;
+  aid.textContent=info[final][0];
+  addLog("最終判定確定");
 }
-
-logEl.innerHTML = localStorage.getItem("uepi-log") || "";
-addLog("UEPI解析端末 起動");
 </script>
 
 </body>
-  </html>
+</html><!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>UEPI 観測端末</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{margin:0;background:#0b0e12;color:#e6e6e6;font-family:monospace}
+header{background:#111827;padding:14px;border-bottom:1px solid #2b2f36}
+.container{padding:16px}
+.panel{border:1px solid #2b2f36;background:#0f131a;padding:12px;margin-bottom:14px}
+button{width:100%;padding:10px;background:#06080c;color:#e6e6e6;border:1px solid #2b2f36}
+.log{font-size:12px;background:#06080c;padding:8px;height:140px;overflow-y:auto}
+.NOIS{color:#4ade80}.MID{color:#facc15}.HIGH{color:#f87171}.CRITICAL{color:#c084fc}
+</style>
+</head>
+
+<body>
+
+<header>
+<b>UEPI 観測・解析端末</b><br>
+<span style="font-size:12px;color:#9aa4b2">
+Unidentified Environmental Phenomena Institute
+</span>
+</header>
+
+<div class="container">
+
+<div class="panel">
+<div>現在の判定</div>
+<div id="status" class="NOIS" style="font-size:18px">未観測</div>
+<div id="aid" style="font-size:13px;opacity:.7">---</div>
+</div>
+
+<div class="panel">
+<button onclick="startObservation()">▶ 観測開始</button>
+</div>
+
+<div class="panel">
+<div>観測ログ</div>
+<div id="log" class="log"></div>
+</div>
+
+</div>
+
+<script>
+let observing=false;
+let results=[];
+
+const log=document.getElementById("log");
+const status=document.getElementById("status");
+const aid=document.getElementById("aid");
+
+function addLog(t){
+  log.innerHTML+=`[${new Date().toLocaleTimeString()}] ${t}<br>`;
+  log.scrollTop=log.scrollHeight;
+}
+
+function startObservation(){
+  if(observing)return;
+  observing=true;
+  results=[];
+  status.textContent="観測中…";
+  status.className="";
+  aid.textContent="UEPI-OBS";
+  addLog("観測開始");
+
+  // 擬似的に複数データ取得（5秒）
+  let count=0;
+  const timer=setInterval(()=>{
+    count++;
+    results.push(sampleDetect());
+    addLog("環境データ取得");
+    if(count>=5){
+      clearInterval(timer);
+      finalizeResult();
+    }
+  },1000);
+}
+
+function sampleDetect(){
+  const pool=["NOIS","NOIS","MID","MID","HIGH","CRITICAL"];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function finalizeResult(){
+  observing=false;
+
+  // 多数決で1つに収束
+  const freq={};
+  results.forEach(r=>freq[r]=(freq[r]||0)+1);
+  const final=Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
+
+  const info={
+    NOIS:["UEPI-000","異常なし"],
+    MID:["UEPI-021","環境異音干渉"],
+    HIGH:["UEPI-071","局所現実歪曲"],
+    CRITICAL:["UEPI-███","重大未解明怪異"]
+  };
+
+  status.textContent=`${final}（${info[final][1]}）`;
+  status.className=final;
+  aid.textContent=info[final][0];
+  addLog("最終判定確定");
+}
+</script>
+
+</body>
+</html>
