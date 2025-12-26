@@ -1,148 +1,124 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>UEPI | Unidentified Environmental Phenomena Institute</title>
+  <meta charset="UTF-8">
+  <title>UEPI 観測端末</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      background: #0b0e12;
+      color: #e6e6e6;
+      font-family: "Courier New", monospace;
+    }
+    header {
+      background: #111827;
+      padding: 16px;
+      border-bottom: 1px solid #2b2f36;
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: #9aa4b2;
+    }
+    .container {
+      padding: 16px;
+    }
+    .panel {
+      border: 1px solid #2b2f36;
+      padding: 12px;
+      margin-bottom: 16px;
+      background: #0f131a;
+    }
 
-<style>
-body {
-  background:#0b0b0b;
-  color:#e0e0e0;
-  font-family: monospace;
-  padding:20px;
-}
-h1 { color:#8aaaff; }
-.box {
-  border:1px solid #444;
-  padding:15px;
-  margin-top:15px;
-}
-.status {
-  font-size:18px;
-  margin-top:10px;
-}
-.NOIS { color:#aaaaaa; }
-.LDV  { color:#55ff55; }
-.MDP  { color:#ffff55; }
-.SDP  { color:#ffaa55; }
-.UEP  { color:#ff5555; }
-button {
-  background:#222;
-  color:#fff;
-  border:1px solid #555;
-  padding:10px;
-  margin-top:10px;
-}
-small { color:#888; }
-</style>
+    /* ===== ランク色 ===== */
+    .NOIS { color: #4ade80; }      /* 緑 */
+    .LOW { color: #60a5fa; }       /* 青 */
+    .MID { color: #facc15; }       /* 黄 */
+    .HIGH { color: #f87171; }      /* 赤 */
+    .CRITICAL { color: #c084fc; }  /* 紫 */
+
+    .status {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .log {
+      font-size: 12px;
+      background: #06080c;
+      padding: 8px;
+      height: 140px;
+      overflow-y: auto;
+      border: 1px solid #2b2f36;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 11px;
+      color: #6b7280;
+      padding: 12px;
+    }
+  </style>
 </head>
-
 <body>
 
-<h1>未解明環境現象研究機構（UEPI）</h1>
-<p>Unidentified Environmental Phenomena Institute</p>
+<header>
+  <h1>UEPI 観測端末</h1>
+  <div class="subtitle">
+    Unidentified Environmental Phenomena Institute
+  </div>
+</header>
 
-<div class="box">
-  <button onclick="startObservation()">観測開始</button>
-  <p id="state">待機中</p>
-  <div id="result"></div>
+<div class="container">
+
+  <div class="panel">
+    <div>現在の観測状態：</div>
+    <div class="status NOIS" id="status">NOIS（異常なし）</div>
+  </div>
+
+  <div class="panel">
+    <div>観測ログ：</div>
+    <div class="log" id="log"></div>
+  </div>
+
 </div>
 
-<small>
-本システムは環境データの統計的偏差を解析する研究目的のものであり、  
-特定の存在や危険性を示すものではありません。
-</small>
+<footer>
+  © UEPI / 未解明環境現象研究機構
+</footer>
 
 <script>
-let audioContext, analyser, dataArray;
-let soundScore = 0;
+  const statusEl = document.getElementById("status");
+  const logEl = document.getElementById("log");
 
-async function startObservation(){
-  document.getElementById("state").textContent = "観測中…";
+  const ranks = [
+    { name: "NOIS", text: "異常なし" },
+    { name: "LOW", text: "微弱な異常反応" },
+    { name: "MID", text: "局所的異常を検出" },
+    { name: "HIGH", text: "危険な異常現象" },
+    { name: "CRITICAL", text: "重大怪異発生" }
+  ];
 
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
+  function setStatus(rank) {
+    statusEl.className = "status " + rank.name;
+    statusEl.textContent = `${rank.name}（${rank.text}）`;
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
-    const res = await fetch(url);
-    const data = await res.json();
-
-    const temp = data.current_weather.temperature;
-    const wind = data.current_weather.windspeed;
-    const hour = new Date().getHours();
-
-    let index = Math.abs(temp - 15) * 2 + wind;
-
-    if(hour >= 0 && hour <= 4) index += 15;
-
-    await startSoundMonitor();
-    index += soundScore;
-
-    const classification = classify(index);
-
-    document.getElementById("state").textContent = "観測完了";
-    document.getElementById("result").innerHTML = `
-      気温：${temp} ℃<br>
-      風速：${wind}<br>
-      音偏差加点：${soundScore}<br>
-      <b>異常指数：${Math.floor(index)}</b><br>
-      <div class="status ${classification.code}">
-        分類：${classification.code}<br>
-        ${classification.jp}
-      </div>
-    `;
-
-    if(classification.code === "SDP" || classification.code === "UEP"){
-      playAlert();
-    }
-  });
-}
-
-function classify(i){
-  if(i < 30) return {code:"NOIS", jp:"観測上の不規則性なし"};
-  if(i < 60) return {code:"LDV", jp:"低偏差環境状態"};
-  if(i < 90) return {code:"MDP", jp:"中程度環境偏差現象"};
-  if(i < 120) return {code:"SDP", jp:"顕著環境偏差現象"};
-  return {code:"UEP", jp:"未解明環境現象"};
-}
-
-async function startSoundMonitor(){
-  soundScore = 0;
-  const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-  audioContext = new AudioContext();
-  analyser = audioContext.createAnalyser();
-  const source = audioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
-  analyser.fftSize = 256;
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-  let total = 0;
-  for(let i=0;i<10;i++){
-    analyser.getByteFrequencyData(dataArray);
-    let avg = dataArray.reduce((a,b)=>a+b) / dataArray.length;
-    total += avg;
-    await new Promise(r=>setTimeout(r,200));
+    const time = new Date().toLocaleTimeString();
+    logEl.innerHTML += `[${time}] ランク判定：${rank.name}<br>`;
+    logEl.scrollTop = logEl.scrollHeight;
   }
 
-  if(total > 1500) soundScore = 10;
-  if(total > 2500) soundScore = 20;
+  // 起動ログ
+  logEl.innerHTML += "[SYSTEM] 観測システム起動<br>";
 
-  audioContext.close();
-}
-
-function playAlert(){
-  const ctx = new AudioContext();
-  const osc = ctx.createOscillator();
-  osc.type = "sine";
-  osc.frequency.value = 440;
-  osc.connect(ctx.destination);
-  osc.start();
-  setTimeout(()=>{
-    osc.stop();
-    ctx.close();
-  },300);
-}
+  // デモ用：ランダムにランク変化
+  setInterval(() => {
+    const rank = ranks[Math.floor(Math.random() * ranks.length)];
+    setStatus(rank);
+  }, 5000);
 </script>
 
 </body>
