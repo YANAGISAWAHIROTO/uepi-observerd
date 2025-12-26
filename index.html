@@ -9,7 +9,7 @@ body{margin:0;background:#0b0e12;color:#e6e6e6;font-family:monospace}
 header{background:#111827;padding:14px;border-bottom:1px solid #2b2f36}
 .container{padding:16px}
 .panel{border:1px solid #2b2f36;background:#0f131a;padding:12px;margin-bottom:14px}
-button{width:100%;padding:10px;background:#06080c;color:#e6e6e6;border:1px solid #2b2f36}
+button{width:100%;padding:12px;background:#06080c;color:#e6e6e6;border:1px solid #2b2f36;font-size:16px}
 .log{font-size:12px;background:#06080c;padding:8px;height:140px;overflow-y:auto}
 .NOIS{color:#4ade80}.MID{color:#facc15}.HIGH{color:#f87171}.CRITICAL{color:#c084fc}
 </style>
@@ -26,16 +26,19 @@ Unidentified Environmental Phenomena Institute
 
 <div class="container">
 
+<!-- 判定表示 -->
 <div class="panel">
 <div>現在の判定</div>
 <div id="status" class="NOIS" style="font-size:18px">未観測</div>
 <div id="aid" style="font-size:13px;opacity:.7">---</div>
 </div>
 
+<!-- 観測開始ボタン（これ1つだけ） -->
 <div class="panel">
-<button onclick="startObservation()">▶ 観測開始</button>
+<button id="startBtn" onclick="startObservation()">▶ 観測開始</button>
 </div>
 
+<!-- ログ -->
 <div class="panel">
 <div>観測ログ</div>
 <div id="log" class="log"></div>
@@ -50,6 +53,7 @@ let results=[];
 const log=document.getElementById("log");
 const status=document.getElementById("status");
 const aid=document.getElementById("aid");
+const startBtn=document.getElementById("startBtn");
 
 function addLog(t){
   log.innerHTML+=`[${new Date().toLocaleTimeString()}] ${t}<br>`;
@@ -57,15 +61,18 @@ function addLog(t){
 }
 
 function startObservation(){
-  if(observing)return;
+  if(observing) return;
+
   observing=true;
   results=[];
+  startBtn.disabled=true;
+  startBtn.textContent="観測中…";
+
   status.textContent="観測中…";
   status.className="";
   aid.textContent="UEPI-OBS";
   addLog("観測開始");
 
-  // 擬似的に複数データ取得（5秒）
   let count=0;
   const timer=setInterval(()=>{
     count++;
@@ -86,7 +93,6 @@ function sampleDetect(){
 function finalizeResult(){
   observing=false;
 
-  // 多数決で1つに収束
   const freq={};
   results.forEach(r=>freq[r]=(freq[r]||0)+1);
   const final=Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
@@ -101,115 +107,11 @@ function finalizeResult(){
   status.textContent=`${final}（${info[final][1]}）`;
   status.className=final;
   aid.textContent=info[final][0];
+
   addLog("最終判定確定");
-}
-</script>
 
-</body>
-</html><!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>UEPI 観測端末</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body{margin:0;background:#0b0e12;color:#e6e6e6;font-family:monospace}
-header{background:#111827;padding:14px;border-bottom:1px solid #2b2f36}
-.container{padding:16px}
-.panel{border:1px solid #2b2f36;background:#0f131a;padding:12px;margin-bottom:14px}
-button{width:100%;padding:10px;background:#06080c;color:#e6e6e6;border:1px solid #2b2f36}
-.log{font-size:12px;background:#06080c;padding:8px;height:140px;overflow-y:auto}
-.NOIS{color:#4ade80}.MID{color:#facc15}.HIGH{color:#f87171}.CRITICAL{color:#c084fc}
-</style>
-</head>
-
-<body>
-
-<header>
-<b>UEPI 観測・解析端末</b><br>
-<span style="font-size:12px;color:#9aa4b2">
-Unidentified Environmental Phenomena Institute
-</span>
-</header>
-
-<div class="container">
-
-<div class="panel">
-<div>現在の判定</div>
-<div id="status" class="NOIS" style="font-size:18px">未観測</div>
-<div id="aid" style="font-size:13px;opacity:.7">---</div>
-</div>
-
-<div class="panel">
-<button onclick="startObservation()">▶ 観測開始</button>
-</div>
-
-<div class="panel">
-<div>観測ログ</div>
-<div id="log" class="log"></div>
-</div>
-
-</div>
-
-<script>
-let observing=false;
-let results=[];
-
-const log=document.getElementById("log");
-const status=document.getElementById("status");
-const aid=document.getElementById("aid");
-
-function addLog(t){
-  log.innerHTML+=`[${new Date().toLocaleTimeString()}] ${t}<br>`;
-  log.scrollTop=log.scrollHeight;
-}
-
-function startObservation(){
-  if(observing)return;
-  observing=true;
-  results=[];
-  status.textContent="観測中…";
-  status.className="";
-  aid.textContent="UEPI-OBS";
-  addLog("観測開始");
-
-  // 擬似的に複数データ取得（5秒）
-  let count=0;
-  const timer=setInterval(()=>{
-    count++;
-    results.push(sampleDetect());
-    addLog("環境データ取得");
-    if(count>=5){
-      clearInterval(timer);
-      finalizeResult();
-    }
-  },1000);
-}
-
-function sampleDetect(){
-  const pool=["NOIS","NOIS","MID","MID","HIGH","CRITICAL"];
-  return pool[Math.floor(Math.random()*pool.length)];
-}
-
-function finalizeResult(){
-  observing=false;
-
-  // 多数決で1つに収束
-  const freq={};
-  results.forEach(r=>freq[r]=(freq[r]||0)+1);
-  const final=Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0];
-
-  const info={
-    NOIS:["UEPI-000","異常なし"],
-    MID:["UEPI-021","環境異音干渉"],
-    HIGH:["UEPI-071","局所現実歪曲"],
-    CRITICAL:["UEPI-███","重大未解明怪異"]
-  };
-
-  status.textContent=`${final}（${info[final][1]}）`;
-  status.className=final;
-  aid.textContent=info[final][0];
-  addLog("最終判定確定");
+  startBtn.disabled=false;
+  startBtn.textContent="▶ 観測開始";
 }
 </script>
 
