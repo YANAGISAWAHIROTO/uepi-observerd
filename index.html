@@ -10,8 +10,23 @@ header{background:#111827;padding:14px;border-bottom:1px solid #2b2f36}
 .container{padding:16px}
 .panel{border:1px solid #2b2f36;background:#0f131a;padding:12px;margin-bottom:14px}
 button{width:100%;padding:12px;background:#06080c;color:#e6e6e6;border:1px solid #2b2f36;font-size:16px}
-.log{font-size:12px;background:#06080c;padding:8px;height:140px;overflow-y:auto}
-.NOIS{color:#4ade80}.MID{color:#facc15}.HIGH{color:#f87171}.CRITICAL{color:#c084fc}
+.log{font-size:12px;background:#06080c;padding:8px;height:110px;overflow-y:auto}
+
+.meter-wrap{
+  width:100%;height:20px;background:#06080c;
+  border:1px solid #2b2f36;margin-top:6px
+}
+.meter-bar{
+  height:100%;width:0%;
+  transition:width .8s ease;
+  background:linear-gradient(90deg,#4ade80,#facc15,#f87171,#c084fc)
+}
+.meter-label{font-size:12px;opacity:.8;margin-top:4px}
+
+.NOIS{color:#4ade80}
+.MID{color:#facc15}
+.HIGH{color:#f87171}
+.CRITICAL{color:#c084fc}
 </style>
 </head>
 
@@ -26,19 +41,24 @@ Unidentified Environmental Phenomena Institute
 
 <div class="container">
 
-<!-- 判定表示 -->
 <div class="panel">
-<div>現在の判定</div>
-<div id="status" class="NOIS" style="font-size:18px">未観測</div>
+<div>最終判定</div>
+<div id="status" style="font-size:18px">未観測</div>
 <div id="aid" style="font-size:13px;opacity:.7">---</div>
 </div>
 
-<!-- 観測開始ボタン（これ1つだけ） -->
 <div class="panel">
 <button id="startBtn" onclick="startObservation()">▶ 観測開始</button>
 </div>
 
-<!-- ログ -->
+<div class="panel">
+<div>危険度メーター</div>
+<div class="meter-wrap">
+  <div id="meter" class="meter-bar"></div>
+</div>
+<div id="meterText" class="meter-label">0%</div>
+</div>
+
 <div class="panel">
 <div>観測ログ</div>
 <div id="log" class="log"></div>
@@ -49,48 +69,94 @@ Unidentified Environmental Phenomena Institute
 <script>
 let observing=false;
 let results=[];
+const TOTAL=5;
+
+let warned70=false;
+let warned90=false;
+
+// --- Audio ---
+let audioCtx=null;
+function beep(freq,dur){
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.frequency.value=freq;
+  osc.type="sine";
+  gain.gain.value=0.15;
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  setTimeout(()=>osc.stop(),dur);
+}
 
 const log=document.getElementById("log");
 const status=document.getElementById("status");
 const aid=document.getElementById("aid");
-const startBtn=document.getElementById("startBtn");
+const btn=document.getElementById("startBtn");
+const meter=document.getElementById("meter");
+const meterText=document.getElementById("meterText");
 
-function addLog(t){
+function logAdd(t){
   log.innerHTML+=`[${new Date().toLocaleTimeString()}] ${t}<br>`;
   log.scrollTop=log.scrollHeight;
 }
 
 function startObservation(){
   if(observing) return;
-
   observing=true;
   results=[];
-  startBtn.disabled=true;
-  startBtn.textContent="観測中…";
+  warned70=false;
+  warned90=false;
 
+  btn.disabled=true;
+  btn.textContent="観測中…";
   status.textContent="観測中…";
   status.className="";
   aid.textContent="UEPI-OBS";
-  addLog("観測開始");
+  meter.style.width="0%";
+  meterText.textContent="0%";
+  logAdd("観測開始");
 
-  let count=0;
+  let step=0;
   const timer=setInterval(()=>{
-    count++;
-    results.push(sampleDetect());
-    addLog("環境データ取得");
-    if(count>=5){
+    step++;
+    const r=detect();
+    results.push(r);
+    logAdd(`データ取得 → ${r}`);
+    updateMeter();
+    if(step>=TOTAL){
       clearInterval(timer);
-      finalizeResult();
+      finalize();
     }
   },1000);
 }
 
-function sampleDetect(){
+function detect(){
   const pool=["NOIS","NOIS","MID","MID","HIGH","CRITICAL"];
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
-function finalizeResult(){
+function updateMeter(){
+  const scoreMap={NOIS:0,MID:1,HIGH:2,CRITICAL:3};
+  let sum=0;
+  results.forEach(r=>sum+=scoreMap[r]);
+  const percent=Math.round((sum/(TOTAL*3))*100);
+  meter.style.width=percent+"%";
+  meterText.textContent=percent+"%";
+
+  if(percent>=70 && !warned70){
+    beep(880,200);
+    logAdd("⚠ 警告レベル到達");
+    warned70=true;
+  }
+  if(percent>=90 && !warned90){
+    setTimeout(()=>beep(880,200),0);
+    setTimeout(()=>beep(880,200),250);
+    logAdd("🚨 危険レベル到達");
+    warned90=true;
+  }
+}
+
+function finalize(){
   observing=false;
 
   const freq={};
@@ -107,14 +173,12 @@ function finalizeResult(){
   status.textContent=`${final}（${info[final][1]}）`;
   status.className=final;
   aid.textContent=info[final][0];
+  logAdd("最終判定確定");
 
-  addLog("最終判定確定");
-
-  startBtn.disabled=false;
-  startBtn.textContent="▶ 観測開始";
+  btn.disabled=false;
+  btn.textContent="▶ 観測開始";
 }
 </script>
 
 </body>
 </html>
-
